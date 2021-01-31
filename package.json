@@ -32,6 +32,7 @@
     "clean": "rm -rf dist && rm -rf .parcel-cache",
     "dev": "npm run tsc && node ./dist/es2017/bin/bytesync-dev.js",
     "dist": "npm run clean && npm run tsc && npm run browser-dist && npm pack",
+    "dist-publish": "npm run dist && npm publish --access=public",
     "test": "echo 'TODO: Test command implementation'",
     "tsc": "tsc -b",
     "x-npm-check-updates": "npx npm-check-updates -u",
