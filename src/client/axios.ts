@@ -1,6 +1,7 @@
 import {
     Base64,
     Block,
+    bufferToBase64,
     isResponseBlock,
     isResponseCreate,
     isResponseSize,
@@ -25,17 +26,18 @@ import {
 import axios from "axios";
 
 export type BlockFn = (stack: Stack, block: Block) => Promise<void>;
-export type VersionFn = (stack: Stack, info: string, block: Block) => Promise<void>;
+export type VersionFn = (stack: Stack, info: Base64, block: Block) => Promise<void>;
+export type SyncFn = { block: BlockFn, version: VersionFn };
 
 export class Client {
     public constructor(public readonly endpoint: string) {
     }
 
-    public async create(info: string, block: Uint8Array): Promise<ResponseCreate> {
+    public async create(info: Uint8Array, block: Uint8Array): Promise<ResponseCreate> {
         return await axios.post(this.endpoint, <RequestCreate>{
             type: "request.create",
-            info,
-            block: arrayBase64(block),
+            info: bufferToBase64(info),
+            block: bufferToBase64(block),
         }).then((res) => {
             if (isResponseCreate(res.data)) {
                 return res.data;
@@ -44,10 +46,7 @@ export class Client {
         });
     }
 
-    public async sync(stack: Stack, fn: {
-        block: BlockFn,
-        version: VersionFn,
-    }): Promise<ResponseSync> {
+    public async sync(stack: Stack, fn: SyncFn): Promise<ResponseSync> {
         return await axios.post(this.endpoint, <RequestSync>{
             type: "request.sync",
             stack,
@@ -83,7 +82,7 @@ export class Client {
         return await axios.post(this.endpoint, <RequestBlock>{
             type: "request.block",
             stack,
-            block: arrayBase64(block),
+            block: bufferToBase64(block),
         }).then((res) => {
             if (isResponseSync(res.data)) {
                 return res.data;
@@ -92,12 +91,12 @@ export class Client {
         });
     }
 
-    public async version(stack: Stack, info: string, block: Uint8Array): Promise<ResponseSync> {
+    public async version(stack: Stack, info: Uint8Array, block: Uint8Array): Promise<ResponseSync> {
         return await axios.post(this.endpoint, <RequestVersion>{
             type: "request.version",
             stack,
-            info,
-            block: arrayBase64(block),
+            info: bufferToBase64(info),
+            block: bufferToBase64(block),
         }).then((res) => {
             if (isResponseSync(res.data)) {
                 return res.data;
@@ -141,10 +140,4 @@ export class Client {
             throw res.data;
         })
     }
-}
-
-function arrayBase64(array: Uint8Array): Base64 {
-    // https://stackoverflow.com/questions/12710001/how-to-convert-uint8-array-to-base64-encoded-string
-    // return btoa(String.fromCharCode.apply(null, array as any));
-    return Buffer.from(array).toString('base64');
 }

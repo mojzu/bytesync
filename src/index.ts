@@ -12,3 +12,7 @@ export * from "./client";
 // TODO: Binary output support using nexe (for docker?)
 // "nexe": "npm run dist && nexe ./dist/es2017/bin/bytesync-dev.js",
 // "nexe": "^4.0.0-beta.17",
+
+// TODO: Improved logging output, wait for better implementation?
+// import logger from "morgan";
+// app.use(logger('dev'));

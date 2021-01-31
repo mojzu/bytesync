@@ -18,7 +18,7 @@ import {
     VERSION_INSERT,
     VERSION_UPDATE
 } from "./sql";
-import {Block, SizeBlock, Stack, SizeVersion} from "../types";
+import {Base64, Block, SizeBlock, SizeVersion, Stack, Uuid} from "../types";
 
 const debug = require('debug')('bytesync:db');
 
@@ -45,62 +45,76 @@ export class Db {
         this.createStackInsert.run(args);
         this.createVersionInsert.run(args);
         this.createBlockInsert.run(args);
-        return this.stackSelect.get(args);
+        return this.intoStack(this.stackSelect.get(args));
     });
 
     private readonly blockTransaction = this.db.transaction((args) => {
         this.blockInsert.run(args);
         this.versionUpdate.run(args);
-        return this.stackSelect.get(args);
+        return this.intoStack(this.stackSelect.get(args));
     });
 
     private readonly versionTransaction = this.db.transaction((args) => {
         this.versionInsert.run(args);
         this.versionBlockInsert.run(args);
-        return this.stackSelect.get(args);
+        return this.intoStack(this.stackSelect.get(args));
     });
 
-    public create(uuid: string, info: string, data: ArrayBufferLike, hash: string): Stack {
-        return this.createTransaction({uuid, info, data: Buffer.from(data), hash});
+    public create(uuid: Uuid, info: Buffer, data: Buffer, hash: Buffer): Stack {
+        return this.createTransaction({uuid, info, data, hash});
     }
 
-    public read(uuid: string): Stack {
-        return this.stackSelect.get({uuid});
+    public read(uuid: Uuid): Stack {
+        const stack = this.stackSelect.get({uuid});
+        if (stack == null) {
+            throw new Error(`Stack not found`);
+        }
+        return this.intoStack(stack);
     }
 
-    public versionRead(uuid: string, version: number): Stack {
+    public versionRead(uuid: Uuid, version: number): Stack {
         const stack = this.stackVersionSelect.get({uuid, version});
         if (stack == null) {
             throw new Error(`Stack not found`);
         }
-        return stack;
+        return this.intoStack(stack);
     }
 
-    public blockRead(uuid: string, version: number, index: number): Block {
+    public blockRead(uuid: Uuid, version: number, index: number): Block {
         const block = this.blockSelect.get({uuid, version, index});
         if (block == null) {
             throw new Error(`Block not found`);
         }
-        return {...block, data: (block.data as Buffer).toString("base64")};
+        return this.intoBlock(block);
     }
 
-    public infoRead(uuid: string, version: number): string {
-        return this.infoSelect.get({uuid, version}).info;
+    public infoRead(uuid: Uuid, version: number): Base64 {
+        return (this.infoSelect.get({uuid, version}).info as Buffer).toString("base64");
     }
 
-    public blockWrite(uuid: string, version: number, height: number, hash: string, data: ArrayBufferLike, blockHash: string, versionHash: string): Stack {
-        return this.blockTransaction({uuid, version, height, hash, data: Buffer.from(data), blockHash, versionHash});
+    public blockWrite(uuid: Uuid, version: number, height: number, hash: Buffer, data: Buffer,
+                      blockHash: Buffer, versionHash: Buffer): Stack {
+        return this.intoStack(this.blockTransaction({uuid, version, height, hash, data, blockHash, versionHash}));
     }
 
-    public versionWrite(uuid: string, version: number, hash: string, info: string, data: ArrayBufferLike, blockHash: string): Stack {
-        return this.versionTransaction({uuid, version, hash, info, data: Buffer.from(data), blockHash})
+    public versionWrite(uuid: Uuid, version: number, hash: Buffer, info: Buffer,
+                        data: Buffer, blockHash: Buffer): Stack {
+        return this.intoStack(this.versionTransaction({uuid, version, hash, info, data, blockHash,}))
     }
 
-    public size(uuid?: string): SizeVersion[] | SizeBlock[] {
+    public size(uuid?: Uuid): SizeVersion[] | SizeBlock[] {
         if (uuid != null) {
-            return this.stackSizeSelect.all({uuid}).map(x => ({...x, type: "size.block"}));
+            return this.stackSizeSelect.all({uuid}).map(x => ({
+                ...x,
+                hash: (x.hash as Buffer).toString("base64"),
+                type: "size.block"
+            }));
         }
-        return this.sizeSelect.all({}).map(x => ({...x, type: "size.version"}));
+        return this.sizeSelect.all({}).map(x => ({
+            ...x,
+            hash: (x.hash as Buffer).toString("base64"),
+            type: "size.version"
+        }));
     }
 
     public vacuum(): void {
@@ -112,6 +126,17 @@ export class Db {
             debug(`Delete version from stack {uuid=${version.uuid}, version=${version.version}}`);
         }
         this.db.exec(VACUUM);
+    }
+
+    private intoStack(res: any): Stack {
+        return {...res, hash: (res.hash as Buffer).toString("base64")};
+    }
+
+    private intoBlock(res: any): Block {
+        return {
+            ...res, data: (res.data as Buffer).toString("base64"),
+            hash: (res.hash as Buffer).toString("base64")
+        }
     }
 }
 

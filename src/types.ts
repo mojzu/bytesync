@@ -1,6 +1,15 @@
 export type Uuid = string;
 export type Timestamp = number;
 export type Base64 = string;
+export type JsonPrimitive = string | number | boolean | null;
+
+interface JsonMap extends Record<string, JsonPrimitive | JsonArray | JsonMap> {
+}
+
+interface JsonArray extends Array<JsonPrimitive | JsonArray | JsonMap> {
+}
+
+export type Json = JsonPrimitive | JsonMap | JsonArray;
 
 export interface Stack {
     uuid: Uuid;
@@ -8,14 +17,14 @@ export interface Stack {
     updated: Timestamp;
     version: number;
     height: number;
-    hash: string;
+    hash: Base64;
 }
 
 export interface Block {
     created: Timestamp;
     index: number;
     data: Base64;
-    hash: string;
+    hash: Base64;
 }
 
 export interface SizeVersion extends Stack {
@@ -28,7 +37,7 @@ export interface SizeBlock {
     version: number;
     created: Timestamp;
     index: number;
-    hash: string;
+    hash: Base64;
     size: number;
 }
 
@@ -48,7 +57,7 @@ export function isSizeBlock(obj: any[]): obj is SizeBlock[] {
 
 export interface RequestCreate {
     type: "request.create";
-    info: string;
+    info: Base64;
     block: Base64;
 }
 
@@ -61,7 +70,7 @@ export interface RequestBlock {
 export interface RequestVersion {
     type: "request.version";
     stack: Stack;
-    info: string;
+    info: Base64;
     block: Base64;
 }
 
@@ -99,7 +108,7 @@ export interface ResponseBlock {
 export interface ResponseVersion {
     type: "response.version";
     stack: Stack;
-    info: string;
+    info: Base64;
     block: Block;
 }
 
@@ -221,7 +230,11 @@ export function isResponseError(obj: any): obj is ResponseError {
 }
 
 function formatString(s: string): string {
-    return `${s.slice(0, 4)}...${s.slice(s.length - 4, s.length)}`
+    return `${s.slice(0, Math.min(4, s.length))}...${s.slice(Math.max(s.length - 4, 0), s.length)}`
+}
+
+export function formatInfo(info: Base64): string {
+    return formatString(info);
 }
 
 export function formatStack(stack: Stack): string {
@@ -261,4 +274,17 @@ export function formatSize(size: SizeVersion[] | SizeBlock[]): string {
     }
 
     return `{${props.join(',')}}`;
+}
+
+export function bufferToBase64(buf: ArrayBufferLike): Base64 {
+    // https://stackoverflow.com/questions/12710001/how-to-convert-uint8-array-to-base64-encoded-string
+    return Buffer.from(buf).toString('base64');
+}
+
+export function base64ToBuffer(b64: Base64): Buffer {
+    return Buffer.from(b64, "base64");
+}
+
+export function base64ToUint8Array(b64: Base64): Uint8Array {
+    return Uint8Array.from(base64ToBuffer(b64));
 }

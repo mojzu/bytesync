@@ -1,7 +1,9 @@
 import {DB, Db} from "./db";
 import {
     Base64,
+    base64ToBuffer,
     formatBlock,
+    formatInfo,
     formatStack,
     isRequestBlock,
     isRequestCreate,
@@ -26,18 +28,12 @@ import crypto from 'crypto';
 
 const debug = require('debug')('bytesync:api');
 
-function bufferFromBase64(block: Base64): ArrayBufferLike {
-    const binaryStr = Buffer.from(block, 'base64').toString();
-    const charCodes = binaryStr.split('').map((x) => x.charCodeAt(0));
-    return Uint8Array.from(charCodes).buffer;
+function sha256FromBuffer(block: Buffer): Buffer {
+    return crypto.createHash("sha256").update(block).digest();
 }
 
-function sha256FromBuffer(block: ArrayBufferLike): string {
-    return crypto.createHash("sha256").update(Buffer.from(block)).digest("hex");
-}
-
-function sha256FromHashes(hash1: string, hash2: string) {
-    return crypto.createHash("sha256").update(hash1).update(hash2).digest("hex");
+function sha256FromHashes(hash1: Base64, hash2: Buffer): Buffer {
+    return crypto.createHash("sha256").update(base64ToBuffer(hash1)).update(hash2).digest();
 }
 
 export interface Auth {
@@ -71,8 +67,8 @@ class Api {
             if (isRequestCreate(body) && (await opt.auth.hasCreatePermission())) {
 
                 const uuid = uuidV4();
-                const info = body.info;
-                const data = bufferFromBase64(body.block);
+                const info = base64ToBuffer(body.info);
+                const data = base64ToBuffer(body.block);
                 const hash = sha256FromBuffer(data);
                 const stack = this.db.create(uuid, info, data, hash);
 
@@ -84,8 +80,8 @@ class Api {
                 const uuid = body.stack.uuid;
                 const version = body.stack.version;
                 const height = body.stack.height;
-                const hash = body.stack.hash;
-                const data = bufferFromBase64(body.block);
+                const hash = base64ToBuffer(body.stack.hash);
+                const data = base64ToBuffer(body.block);
                 const blockHash = sha256FromBuffer(data);
 
                 const stack2 = this.db.read(body.stack.uuid);
@@ -100,9 +96,9 @@ class Api {
 
                 const uuid = body.stack.uuid;
                 const version = body.stack.version;
-                const hash = body.stack.hash;
-                const info = body.info;
-                const data = bufferFromBase64(body.block);
+                const hash = base64ToBuffer(body.stack.hash);
+                const info = base64ToBuffer(body.info);
+                const data = base64ToBuffer(body.block);
                 const blockHash = sha256FromBuffer(data);
 
                 const stack = this.db.versionWrite(uuid, version, hash, info, data, blockHash);
@@ -159,14 +155,14 @@ class Api {
 
         if (versionMatch && heightMatch) {
 
-            debug(`Synchronise stack ${formatStack(stack)}`);
+            debug(`Synchronise stack ${formatStack(stack2)}`);
             return <ResponseSync>{type: "response.sync", stack: stack2};
 
         } else if (versionMatch) {
 
             const block = this.db.blockRead(stack2.uuid, stack2.version, stack.height);
 
-            debug(`Synchronise block ${formatBlock(block)} from stack ${formatStack(stack)}`);
+            debug(`Synchronise block ${formatBlock(block)} from stack ${formatStack(stack2)}`);
             return <ResponseBlock>{type: "response.block", stack: stack2, block};
 
         } else {
@@ -174,7 +170,7 @@ class Api {
             const info = this.db.infoRead(stack2.uuid, stack2.version);
             const block = this.db.blockRead(stack2.uuid, stack2.version, 0);
 
-            debug(`Synchronise version '${info}' ${formatBlock(block)} from stack ${formatStack(stack)}`);
+            debug(`Synchronise version '${formatInfo(info)}' ${formatBlock(block)} from stack ${formatStack(stack2)}`);
             return <ResponseVersion>{type: "response.version", stack: stack2, info, block};
 
         }

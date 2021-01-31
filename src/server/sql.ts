@@ -23,12 +23,12 @@ CREATE TABLE IF NOT EXISTS version_table (
     "stack_id" INTEGER NOT NULL,
     -- Version number
     "version" INTEGER NOT NULL,
-    -- Serialised information (usable by clients for encryption)
-    "info" TEXT NOT NULL,
+    -- Version information
+    "info" BLOB NOT NULL,
     -- Number of blocks
     "height" INTEGER NOT NULL,
     -- Hash of hashes of block data
-    "hash" TEXT NOT NULL,
+    "hash" BLOB NOT NULL,
 
     UNIQUE ("stack_id", "version"),
     FOREIGN KEY ("stack_id") 
@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS block_table (
     -- Block data blob
     "data" BLOB NOT NULL,
     -- Hash of block data (may be used for integrity checking)
-    "hash" TEXT NOT NULL,
+    "hash" BLOB NOT NULL,
 
     UNIQUE ("version_id", "index"),
     FOREIGN KEY ("version_id") 

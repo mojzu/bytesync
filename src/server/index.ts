@@ -1,5 +1,4 @@
 import express from "express";
-import logger from "morgan";
 import {API} from "./api";
 import cors from "cors";
 
@@ -14,7 +13,6 @@ const apiRouter = router.post('/', async (req, res) => {
     res.json(await API.handleRequest(req.body));
 });
 
-app.use(logger('dev'));
 app.use(express.json());
 app.use(cors());
 
