@@ -1,4 +1,4 @@
-/// <reference lib="dom" />
+/// <reference lib="webworker" />
 import {Json} from "../types";
 
 export interface EncryptedBytes {
@@ -6,16 +6,16 @@ export interface EncryptedBytes {
     bytes: Uint8Array;
 }
 
-export interface BrowserCryptoParams {
+export interface CryptoParams {
     pbkdf2Params: Partial<Pbkdf2Params>;
     saltLength: number;
     aesParams: AesKeyGenParams;
     ivLength: number;
 }
 
-export class BrowserCrypto {
+export class Crypto {
     public constructor(
-        private readonly params: BrowserCryptoParams = {
+        private readonly params: CryptoParams = {
             pbkdf2Params: {
                 name: "PBKDF2",
                 iterations: 100000,
@@ -40,11 +40,11 @@ export class BrowserCrypto {
     }
 
     static encodeJson(json: Json): Uint8Array {
-        return BrowserCrypto.encodeText(JSON.stringify(json));
+        return Crypto.encodeText(JSON.stringify(json));
     }
 
     static decodeJson(bytes: Uint8Array): Json {
-        return JSON.parse(BrowserCrypto.decodeText(bytes));
+        return JSON.parse(Crypto.decodeText(bytes));
     }
 
     static encodeEncryptedBytes(enc: EncryptedBytes): Uint8Array {
@@ -65,14 +65,14 @@ export class BrowserCrypto {
     /** Returns a crypto key derived from a secret password */
     public async derive(password: string): Promise<CryptoKey> {
         const salt = await this.generateSalt();
-        const keyMaterial = await window.crypto.subtle.importKey(
+        const keyMaterial = await self.crypto.subtle.importKey(
             "raw",
-            BrowserCrypto.encodeText(password),
+            Crypto.encodeText(password),
             this.params.pbkdf2Params as Algorithm,
             false,
             ["deriveBits", "deriveKey"]
         );
-        return await window.crypto.subtle.deriveKey(
+        return await self.crypto.subtle.deriveKey(
             {...this.params.pbkdf2Params, salt} as Pbkdf2Params,
             keyMaterial,
             this.params.aesParams,
@@ -83,7 +83,7 @@ export class BrowserCrypto {
 
     /** Returns a randomly generated crypto key */
     public async generate(): Promise<CryptoKey> {
-        return await window.crypto.subtle.generateKey(this.params.aesParams, true, [
+        return await self.crypto.subtle.generateKey(this.params.aesParams, true, [
             "encrypt",
             "decrypt",
         ]);
@@ -91,12 +91,12 @@ export class BrowserCrypto {
 
     /** Returns exported crypto key in serialisable jwt format  */
     public async export(key: CryptoKey): Promise<JsonWebKey> {
-        return await window.crypto.subtle.exportKey("jwk", key);
+        return await self.crypto.subtle.exportKey("jwk", key);
     }
 
     /** Returns imported crypto key from jwt format */
     public async import(json: JsonWebKey): Promise<CryptoKey> {
-        return await window.crypto.subtle.importKey(
+        return await self.crypto.subtle.importKey(
             "jwk",
             json,
             this.params.aesParams,
@@ -111,7 +111,7 @@ export class BrowserCrypto {
         bytes: Uint8Array
     ): Promise<EncryptedBytes> {
         const iv = await this.generateIv();
-        const encrypted = await window.crypto.subtle.encrypt(
+        const encrypted = await self.crypto.subtle.encrypt(
             {...this.params.aesParams, iv},
             key,
             bytes
@@ -124,7 +124,7 @@ export class BrowserCrypto {
         key: CryptoKey,
         text: string
     ): Promise<EncryptedBytes> {
-        return await this.encryptBytes(key, BrowserCrypto.encodeText(text));
+        return await this.encryptBytes(key, Crypto.encodeText(text));
     }
 
     /** Returns encrypted bytes of JSON encrypted with key */
@@ -132,7 +132,7 @@ export class BrowserCrypto {
         key: CryptoKey,
         json: Json
     ): Promise<EncryptedBytes> {
-        return await this.encryptBytes(key, BrowserCrypto.encodeJson(json));
+        return await this.encryptBytes(key, Crypto.encodeJson(json));
     }
 
     /** Returns decrypted bytes using key */
@@ -140,7 +140,7 @@ export class BrowserCrypto {
         key: CryptoKey,
         encrypted: EncryptedBytes
     ): Promise<Uint8Array> {
-        const decrypted = await window.crypto.subtle.decrypt(
+        const decrypted = await self.crypto.subtle.decrypt(
             {...this.params.aesParams, iv: encrypted.iv},
             key,
             encrypted.bytes
@@ -153,7 +153,7 @@ export class BrowserCrypto {
         key: CryptoKey,
         encrypted: EncryptedBytes
     ): Promise<string> {
-        return BrowserCrypto.decodeText(await this.decryptBytes(key, encrypted));
+        return Crypto.decodeText(await this.decryptBytes(key, encrypted));
     }
 
     /** Returns decrypted JSON using key */
@@ -161,18 +161,18 @@ export class BrowserCrypto {
         key: CryptoKey,
         encrypted: EncryptedBytes
     ): Promise<Json> {
-        return BrowserCrypto.decodeJson(await this.decryptBytes(key, encrypted));
+        return Crypto.decodeJson(await this.decryptBytes(key, encrypted));
     }
 
     /** The IV must never be reused with a given key, but does not have to be secret */
     private async generateIv(): Promise<Uint8Array> {
-        return await window.crypto.getRandomValues(
+        return await self.crypto.getRandomValues(
             new Uint8Array(this.params.ivLength)
         );
     }
 
     private async generateSalt(): Promise<Uint8Array> {
-        return await window.crypto.getRandomValues(
+        return await self.crypto.getRandomValues(
             new Uint8Array(this.params.saltLength)
         );
     }

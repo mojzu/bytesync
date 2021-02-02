@@ -1,7 +1,5 @@
 /// <reference lib="dom" />
-
-import {Client} from "../src/client";
-import {BrowserClient, BrowserCrypto} from "../src/browser";
+import {Client, Crypto} from "../src/browser";
 import {formatBlock, formatSize, formatStack} from "../src/types";
 
 function getEndpoint(): string {
@@ -23,7 +21,7 @@ function randomBytes(): Uint8Array {
     return Uint8Array.from({length: 512}, () => Math.floor(Math.random() * 255));
 }
 
-async function testClient(derivedKey: CryptoKey, client: BrowserClient): Promise<void> {
+async function testClient(derivedKey: CryptoKey, client: Client): Promise<void> {
     // Create stack and write some blocks
     let stackInfo = await client.create(derivedKey, {user_data: 1}, randomBytes());
     addOutput(`Created stack ${formatStack(stackInfo.stack)}`);
@@ -45,6 +43,7 @@ async function testClient(derivedKey: CryptoKey, client: BrowserClient): Promise
         version: async (stack: any, info: any, block: any) => {
             addOutput(`Synchronising version '${JSON.stringify(info)}' ${formatBlock(block)} from stack ${formatStack(stack)}`);
         },
+        cancel: async () => false,
     };
 
     stackInfo = await client.sync(derivedKey, stackInfo, syncFn1);
@@ -130,11 +129,10 @@ async function testClient(derivedKey: CryptoKey, client: BrowserClient): Promise
 
 (document.getElementById("test-button") as HTMLButtonElement)?.addEventListener("click", async () => {
     const endpoint = getEndpoint();
-    const innerClient = new Client(endpoint);
-    const crypto = new BrowserCrypto();
+    const crypto = new Crypto();
     const derivedKey = await crypto.derive("guestGuest");
-    const client = new BrowserClient(innerClient, crypto);
+    const client = new Client(endpoint, crypto);
 
-    addOutput(`Testing client endpoint=${innerClient.endpoint}`);
+    addOutput(`Testing client endpoint=${client.endpoint}`);
     testClient(derivedKey, client).catch((err) => console.error(err));
 });

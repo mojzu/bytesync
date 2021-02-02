@@ -1,6 +1,5 @@
-/// <reference lib="dom" />
-import {Client, SyncFn} from "../client";
-import {BrowserCrypto} from "./crypto";
+import {Client as BaseClient, SyncFn} from "../client";
+import {Crypto} from "./crypto";
 import {base64ToUint8Array, Block, Json, ResponseSize, ResponseVacuum, Stack} from "../types";
 
 export interface StackInfo {
@@ -8,8 +7,11 @@ export interface StackInfo {
     info: Json;
 }
 
-export class BrowserClient {
-    public constructor(public readonly client: Client, private readonly crypto: BrowserCrypto) {
+export class Client {
+    private readonly client: BaseClient;
+
+    public constructor(public readonly endpoint: string, private readonly crypto: Crypto) {
+        this.client = new BaseClient(endpoint);
     }
 
     public async create(key: CryptoKey, info: Json, block: Uint8Array): Promise<StackInfo> {
@@ -17,10 +19,10 @@ export class BrowserClient {
         const infoKeyJson = await this.crypto.export(infoKey);
         const infoObj: Json = {info, key: infoKeyJson} as any;
         const infoEnc = await this.crypto.encryptJson(key, infoObj);
-        const infoUi8 = BrowserCrypto.encodeEncryptedBytes(infoEnc);
+        const infoUi8 = Crypto.encodeEncryptedBytes(infoEnc);
 
         const blockEnc = await this.crypto.encryptBytes(infoKey, block);
-        const blockUi8 = BrowserCrypto.encodeEncryptedBytes(blockEnc);
+        const blockUi8 = Crypto.encodeEncryptedBytes(blockEnc);
 
         const res = await this.client.create(infoUi8, blockUi8);
         return {stack: res.stack, info: infoObj};
@@ -33,23 +35,24 @@ export class BrowserClient {
         const res = await this.client.sync(stack.stack, {
             version: async (stack, info, block) => {
                 const infoUi8 = base64ToUint8Array(info);
-                const infoEnc = BrowserCrypto.decodeEncryptedBytes(infoUi8);
+                const infoEnc = Crypto.decodeEncryptedBytes(infoUi8);
                 infoObj = await this.crypto.decryptJson(key, infoEnc);
                 infoKey = await this.crypto.import((infoObj as any).key);
 
                 const blockUi8 = base64ToUint8Array(block.data);
-                const blockEnc = BrowserCrypto.decodeEncryptedBytes(blockUi8);
+                const blockEnc = Crypto.decodeEncryptedBytes(blockUi8);
                 const blockData = await this.crypto.decryptBytes(infoKey, blockEnc);
 
                 await fn.version(stack, (infoObj as any).info, {...block, data: (blockData as any)});
             },
             block: async (stack, block) => {
                 const blockUi8 = base64ToUint8Array(block.data);
-                const blockEnc = BrowserCrypto.decodeEncryptedBytes(blockUi8);
+                const blockEnc = Crypto.decodeEncryptedBytes(blockUi8);
                 const blockData = await this.crypto.decryptBytes(infoKey, blockEnc);
 
                 await fn.block(stack, {...block, data: (blockData as any)});
             },
+            cancel: async () => fn.cancel(),
         });
 
         return {stack: res.stack, info: infoObj};
@@ -59,7 +62,7 @@ export class BrowserClient {
         const infoKey = await this.stackKey(stack);
 
         const blockEnc = await this.crypto.encryptBytes(infoKey, block);
-        const blockUi8 = BrowserCrypto.encodeEncryptedBytes(blockEnc);
+        const blockUi8 = Crypto.encodeEncryptedBytes(blockEnc);
 
         const res = await this.client.block(stack.stack, blockUi8);
         return {...stack, stack: res.stack};
@@ -70,10 +73,10 @@ export class BrowserClient {
         const infoKeyJson = await this.crypto.export(infoKey);
         const infoObj: Json = {info, key: infoKeyJson} as any;
         const infoEnc = await this.crypto.encryptJson(key, infoObj);
-        const infoUi8 = BrowserCrypto.encodeEncryptedBytes(infoEnc);
+        const infoUi8 = Crypto.encodeEncryptedBytes(infoEnc);
 
         const blockEnc = await this.crypto.encryptBytes(infoKey, block);
-        const blockUi8 = BrowserCrypto.encodeEncryptedBytes(blockEnc);
+        const blockUi8 = Crypto.encodeEncryptedBytes(blockEnc);
 
         const res = await this.client.version(stack.stack, infoUi8, blockUi8);
         return {stack: res.stack, info: infoObj};
@@ -88,7 +91,7 @@ export class BrowserClient {
 
         const res = await this.client.read(stack.stack.uuid, stack.stack.version, index);
         const blockUi8 = base64ToUint8Array(res.block.data);
-        const blockEnc = BrowserCrypto.decodeEncryptedBytes(blockUi8);
+        const blockEnc = Crypto.decodeEncryptedBytes(blockUi8);
         const blockData = await this.crypto.decryptBytes(infoKey, blockEnc);
 
         return {...res.block, data: (blockData as any)}

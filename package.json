@@ -1,6 +1,6 @@
 {
   "name": "bytesync",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Bytes synchronisation protocol",
   "homepage": "https://github.com/mojzu/bytesync#readme",
   "bugs": {
@@ -26,15 +26,15 @@
     "/dist/**/*.css.map"
   ],
   "scripts": {
-    "browser-dev": "parcel serve ./test/index.html",
-    "browser-dist": "parcel build ./test/index.html --public-url '.'",
-    "browser-open": "open-cli ./dist/browser/index.html",
     "clean": "rm -rf dist && rm -rf .parcel-cache",
     "dev": "npm run tsc && node ./dist/es2017/bin/bytesync-dev.js",
-    "dist": "npm run clean && npm run tsc && npm run browser-dist && npm pack",
+    "dist": "npm run clean && npm run tsc && npm run test-dist && npm pack",
     "dist-publish": "npm run dist && npm publish --access=public",
     "test": "echo 'TODO: Test command implementation'",
-    "tsc": "tsc -b",
+    "test-dev": "parcel serve ./test/index.html",
+    "test-dist": "parcel build ./test/index.html --public-url '.'",
+    "test-open": "open-cli ./dist/test/index.html",
+    "tsc": "tsc -b tsconfig.json",
     "x-npm-check-updates": "npx npm-check-updates -u",
     "x-sort-package-json": "npx sort-package-json"
   },
@@ -63,6 +63,8 @@
   },
   "targets": {
     "main": false,
-    "browser": {}
+    "test": {
+      "distDir": "./dist/test"
+    }
   }
 }
