@@ -1,6 +1,6 @@
 {
   "name": "bytesync",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Bytes synchronisation protocol",
   "homepage": "https://github.com/mojzu/bytesync#readme",
   "bugs": {

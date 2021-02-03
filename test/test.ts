@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 import {Client, CRYPTO} from "../src/dom";
-import {formatBlock, formatSize, formatStack} from "../src/common/types";
+import {formatBlock, formatSize, formatStack, Json} from "../src/common/types";
 
 function getEndpoint(): string {
     const value = (document.getElementById("endpoint") as HTMLInputElement)?.value;
@@ -21,15 +21,51 @@ function randomBytes(): Uint8Array {
     return Uint8Array.from({length: 512}, () => Math.floor(Math.random() * 255));
 }
 
+const data: { [version: number]: Uint8Array[] } = {
+    1: [randomBytes(), randomBytes(), randomBytes()],
+    2: [randomBytes(), randomBytes(), randomBytes()],
+};
+
+async function testCrypto(): Promise<void> {
+    const derivedKey = await CRYPTO.derive("guestguest");
+
+    const key = await CRYPTO.generate();
+
+    const exportedKey = await CRYPTO.export(key);
+
+    const encryptedKey = await CRYPTO.encryptJson(derivedKey, exportedKey as Json);
+
+    const decryptedKey = await CRYPTO.decryptJson(derivedKey, encryptedKey);
+    if (JSON.stringify(decryptedKey) !== JSON.stringify(exportedKey)) {
+        throw new Error(`Decrypt json key did not match input`);
+    }
+
+    const importedKey = await CRYPTO.import(decryptedKey as JsonWebKey);
+
+    const text1 = "Hello, world!";
+    const encryptedText = await CRYPTO.encryptText(importedKey, text1);
+    const text2 = await CRYPTO.decryptText(importedKey, encryptedText);
+    if (text2 !== text1) {
+        throw new Error(`Decrypt text content did not match input`);
+    }
+
+    const json1: Json = {index: 0, arr: ["1", "2"]};
+    const encryptedJson = await CRYPTO.encryptJson(importedKey, json1);
+    const json2 = await CRYPTO.decryptJson(importedKey, encryptedJson);
+    if (JSON.stringify(json2) !== JSON.stringify(json1)) {
+        throw new Error(`Decrypt json content did not match input`);
+    }
+}
+
 async function testClient(derivedKey: CryptoKey, client: Client): Promise<void> {
     // Create stack and write some blocks
-    let stackInfo = await client.create(derivedKey, {user_data: 1}, randomBytes());
+    let stackInfo = await client.create(derivedKey, {user_data: 1}, data[1][0]);
     addOutput(`Created stack ${formatStack(stackInfo.stack)}`);
 
-    stackInfo = await client.block(stackInfo, randomBytes());
+    stackInfo = await client.block(stackInfo, data[1][1]);
     addOutput(`Wrote block to stack ${formatStack(stackInfo.stack)}`);
 
-    stackInfo = await client.block(stackInfo, randomBytes());
+    stackInfo = await client.block(stackInfo, data[1][2]);
     addOutput(`Wrote block to stack ${formatStack(stackInfo.stack)}`);
 
     // Synchronise stack from beginning with UUID
@@ -38,9 +74,17 @@ async function testClient(derivedKey: CryptoKey, client: Client): Promise<void> 
 
     const syncFn1 = {
         block: async (stack: any, block: any) => {
+            const dataCheck = Buffer.from(data[stack.version][block.index]).equals(Buffer.from(block.data, "base64"));
+            if (!dataCheck) {
+                throw new Error(`Output data does not match input`);
+            }
             addOutput(`Synchronising block ${formatBlock(block)} from stack ${formatStack(stack)}`);
         },
         version: async (stack: any, info: any, block: any) => {
+            const dataCheck = Buffer.from(data[stack.version][block.index]).equals(Buffer.from(block.data, "base64"));
+            if (!dataCheck) {
+                throw new Error(`Output data does not match input`);
+            }
             addOutput(`Synchronising version '${JSON.stringify(info)}' ${formatBlock(block)} from stack ${formatStack(stack)}`);
         },
         cancel: async () => false,
@@ -55,13 +99,13 @@ async function testClient(derivedKey: CryptoKey, client: Client): Promise<void> 
     addOutput(`Synchronised stack ${formatStack(stackInfo.stack)}`);
 
     // Write new version and some blocks
-    stackInfo = await client.version(derivedKey, stackInfo, {user_data: 2}, randomBytes());
+    stackInfo = await client.version(derivedKey, stackInfo, {user_data: 2}, data[2][0]);
     addOutput(`Wrote version to stack ${formatStack(stackInfo.stack)}`);
 
-    stackInfo = await client.block(stackInfo, randomBytes());
+    stackInfo = await client.block(stackInfo, data[2][1]);
     addOutput(`Wrote block to stack ${formatStack(stackInfo.stack)}`);
 
-    stackInfo = await client.block(stackInfo, randomBytes());
+    stackInfo = await client.block(stackInfo, data[2][2]);
     addOutput(`Wrote block to stack ${formatStack(stackInfo.stack)}`);
 
     // Synchronise stack from last known
@@ -72,6 +116,10 @@ async function testClient(derivedKey: CryptoKey, client: Client): Promise<void> 
     // Read from known block
     const block1 = await client.read(stackInfo, 0);
     addOutput(`Read block ${formatBlock(block1)} from stack ${formatStack(stackInfo.stack)}`);
+    const dataCheck = Buffer.from(data[stackInfo.stack.version][block1.index]).equals(Buffer.from(block1.data, "base64"));
+    if (!dataCheck) {
+        throw new Error(`Output data does not match input`);
+    }
 
     // Read stack size information
     const res10 = await client.size();
@@ -90,48 +138,22 @@ async function testClient(derivedKey: CryptoKey, client: Client): Promise<void> 
     // TODO: Option to prevent version upgrade during sync?
     // TODO: Delete mechanisms, all old versions/versions within range? Or by time?
     // TODO: Create cannot have empty info/block
-    // TODO: Check block data is written/read correctly
     // TODO: Check not found, other invalid parameters
     // TODO: More tests here or framework for this?
-    // TODO: BrowserCrypto class tests
-    // const derivedKey = await crypto.deriveKey("guestguest");
-    // console.log("DERIVED_KEY", derivedKey);
-    //
-    // const key = await crypto.generateKey();
-    // console.log("KEY", key);
-    //
-    // const exportedKey = await crypto.exportKey(key);
-    // console.log("EXPORTED", exportedKey, JSON.stringify(exportedKey));
-    //
-    // const encryptedKey = await crypto.encryptJson(derivedKey, exportedKey);
-    // console.log("ENCRYPTED_KEY", encryptedKey);
-    //
-    // const decryptedKey = await crypto.decryptJson(derivedKey, encryptedKey);
-    // console.log("DECRYPTED_KEY", encryptedKey);
-    //
-    // const importedKey = await crypto.importKey(decryptedKey);
-    // console.log("IMPORTED_KEY", importedKey);
-    //
-    // let text = "Hello, world!";
-    // const encryptedText = await crypto.encryptText(importedKey, text);
-    // console.log("ENCRYPTED_TEXT", encryptedText);
-    //
-    // text = await crypto.decryptText(importedKey, encryptedText);
-    // console.log("DECRYPTED_TEXT", text);
-    //
-    // let json = { index: 0, arr: ["1", "2"] };
-    // const encryptedJson = await crypto.encryptJson(importedKey, json);
-    // console.log("ENCRYPTED_JSON", encryptedJson);
-    //
-    // json = await crypto.decryptJson(importedKey, encryptedJson);
-    // console.log("DECRYPTED_JSON", json, JSON.stringify(json));
 }
 
 (document.getElementById("test-button") as HTMLButtonElement)?.addEventListener("click", async () => {
-    const endpoint = getEndpoint();
-    const derivedKey = await CRYPTO.derive("guestguest");
-    const client = new Client(endpoint, CRYPTO);
+    try {
+        const endpoint = getEndpoint();
+        const derivedKey = await CRYPTO.derive("guestguest");
+        const client = new Client(endpoint, CRYPTO);
 
-    addOutput(`Testing client endpoint=${client.endpoint}`);
-    testClient(derivedKey, client).catch((err) => console.error(err));
+        addOutput(`Testing crypto`);
+        await testCrypto();
+        addOutput(`Testing client endpoint=${client.endpoint}`);
+        await testClient(derivedKey, client);
+    } catch (err) {
+        console.error(err);
+        addOutput(String(err));
+    }
 });
