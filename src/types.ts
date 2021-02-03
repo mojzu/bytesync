@@ -1,3 +1,5 @@
+import {Buffer} from "buffer";
+
 export type Uuid = string;
 export type Timestamp = number;
 export type Base64 = string;

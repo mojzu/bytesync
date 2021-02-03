@@ -1,6 +1,6 @@
 {
   "name": "bytesync",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Bytes synchronisation protocol",
   "homepage": "https://github.com/mojzu/bytesync#readme",
   "bugs": {
@@ -41,6 +41,7 @@
   "dependencies": {
     "axios": "~0.21.1",
     "better-sqlite3": "~7.1.2",
+    "buffer": "~6.0.3",
     "cors": "~2.8.5",
     "debug": "~4.3.1",
     "dotenv": "~8.2.0",
