@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": [
+      "es2017",
+      "dom"
+    ],
+    "outDir": "./dist"
+  },
+  "include": [
+    "./src/**/*.ts"
+  ],
+  "exclude": [
+    "./src/common/**/*.ts",
+    "./src/webworker/**/*.ts",
+    "./src/index.ts",
+    "./node_modules"
+  ]
+}

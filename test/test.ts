@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
-import {Client, Crypto} from "../src/browser";
-import {formatBlock, formatSize, formatStack} from "../src/types";
+import {Client, CRYPTO} from "../src/dom";
+import {formatBlock, formatSize, formatStack} from "../src/common/types";
 
 function getEndpoint(): string {
     const value = (document.getElementById("endpoint") as HTMLInputElement)?.value;
@@ -129,9 +129,8 @@ async function testClient(derivedKey: CryptoKey, client: Client): Promise<void> 
 
 (document.getElementById("test-button") as HTMLButtonElement)?.addEventListener("click", async () => {
     const endpoint = getEndpoint();
-    const crypto = new Crypto();
-    const derivedKey = await crypto.derive("guestGuest");
-    const client = new Client(endpoint, crypto);
+    const derivedKey = await CRYPTO.derive("guestguest");
+    const client = new Client(endpoint, CRYPTO);
 
     addOutput(`Testing client endpoint=${client.endpoint}`);
     testClient(derivedKey, client).catch((err) => console.error(err));
