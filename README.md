@@ -2,6 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/bytesync.svg)](https://www.npmjs.com/package/bytesync)
 [![npm](https://img.shields.io/npm/l/bytesync.svg)](https://github.com/mojzu/bytesync/blob/main/LICENCE)
+![Rust CI](https://github.com/mojzu/bytesync/workflows/NPM%20CI/badge.svg?branch=main)
 
 ## Quickstart
 
