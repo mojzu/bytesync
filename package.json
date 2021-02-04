@@ -1,6 +1,6 @@
 {
   "name": "bytesync",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Bytes synchronisation protocol",
   "homepage": "https://github.com/mojzu/bytesync#readme",
   "bugs": {
@@ -56,7 +56,7 @@
     "@types/cors": "^2.8.9",
     "@types/express": "^4.17.11",
     "@types/morgan": "^1.9.2",
-    "@types/node": "^14.14.22",
+    "@types/node": "^14.14.25",
     "@types/uuid": "^8.3.0",
     "open-cli": "^6.0.1",
     "parcel": "^2.0.0-beta.1",

@@ -17,14 +17,9 @@ function addOutput(text: string): void {
     document.getElementById("output")?.appendChild(div);
 }
 
-function randomBytes(): Uint8Array {
-    return Uint8Array.from({length: 512}, () => Math.floor(Math.random() * 255));
+function randomBytes(length = 512): Uint8Array {
+    return Uint8Array.from({length}, () => Math.floor(Math.random() * 255));
 }
-
-const data: { [version: number]: Uint8Array[] } = {
-    1: [randomBytes(), randomBytes(), randomBytes()],
-    2: [randomBytes(), randomBytes(), randomBytes()],
-};
 
 async function testCrypto(): Promise<void> {
     const derivedKey = await CRYPTO.derive("guestguest");
@@ -58,6 +53,11 @@ async function testCrypto(): Promise<void> {
 }
 
 async function testClient(derivedKey: CryptoKey, client: Client): Promise<void> {
+    const data: { [version: number]: Uint8Array[] } = {
+        1: [randomBytes(), randomBytes(), randomBytes()],
+        2: [randomBytes(), randomBytes(), randomBytes()],
+    };
+
     // Create stack and write some blocks
     let stackInfo = await client.create(derivedKey, {user_data: 1}, data[1][0]);
     addOutput(`Created stack ${formatStack(stackInfo.stack)}`);
@@ -140,6 +140,36 @@ async function testClient(derivedKey: CryptoKey, client: Client): Promise<void> 
     // TODO: Create cannot have empty info/block
     // TODO: Check not found, other invalid parameters
     // TODO: More tests here or framework for this?
+    // TODO: Automate read/write test results and save as graph
+}
+
+async function testReadWrite(derivedKey: CryptoKey, client: Client, blockNum = 512, blockSize = 512): Promise<void> {
+    const blockData = randomBytes(blockSize);
+    let stackInfo = await client.create(derivedKey, {}, blockData);
+    addOutput(`Created stack ${formatStack(stackInfo.stack)}`);
+
+    addOutput(`Writing ${blockNum} blocks of size ${blockSize} to stack ${formatStack(stackInfo.stack)}`);
+    let startTime = Date.now();
+    for (let i = 0; i < blockNum; i++) {
+        stackInfo = await client.block(stackInfo, blockData);
+    }
+    let endTime = Date.now();
+    addOutput(`Finished writing ${blockNum} blocks in ${endTime - startTime}ms`);
+
+    addOutput(`Reading ${blockNum} blocks of size ${blockSize} from stack ${formatStack(stackInfo.stack)}`);
+    const syncFn = {
+        block: async (stack: any, block: any) => {
+        },
+        version: async (stack: any, info: any, block: any) => {
+        },
+        cancel: async () => false,
+    };
+
+    startTime = Date.now();
+    stackInfo.stack = {uuid: stackInfo.stack.uuid, version: 0, height: 0} as any;
+    stackInfo = await client.sync(derivedKey, stackInfo, syncFn);
+    endTime = Date.now();
+    addOutput(`Finished reading ${blockNum} blocks in ${endTime - startTime}ms`);
 }
 
 (document.getElementById("test-button") as HTMLButtonElement)?.addEventListener("click", async () => {
@@ -152,6 +182,8 @@ async function testClient(derivedKey: CryptoKey, client: Client): Promise<void> 
         await testCrypto();
         addOutput(`Testing client endpoint=${client.endpoint}`);
         await testClient(derivedKey, client);
+        addOutput(`Testing read/write speed endpoint=${client.endpoint}`);
+        await testReadWrite(derivedKey, client, 1, 1024 * 1024);
     } catch (err) {
         console.error(err);
         addOutput(String(err));

@@ -1,7 +1,3 @@
-/**
- * NOTICE: This file must be kept in sync with ../<lib>/crypto.ts
- * TODO: Find a cleaner way of handling dom/webworker type differences
- */
 import {Crypto as CryptoIf, CryptoParams} from '../common/client/crypto';
 import {Json} from "../common/types";
 
